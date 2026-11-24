@@ -24,7 +24,7 @@
 
 @top Program { containerMembers }
 
-@skip { whitespace | LineComment | DocComment | ContainerDocComment }
+@skip { whitespace | LineComment | sectionComment | DocComment | ContainerDocComment }
 
 // *** Containers (files, structs, enums, unions, opaques) ***
 
@@ -86,6 +86,7 @@ statement {
   DeferStatement |
   ComptimeStatement |
   NosuspendStatement |
+  SuspendStatement |
   IfStatement |
   WhileStatement |
   ForStatement |
@@ -104,6 +105,8 @@ DeferStatement { (kw<"defer"> | kw<"errdefer"> Payload?) blockExpressionStatemen
 ComptimeStatement { kw<"comptime"> (Block | LabeledBlock) !statement }
 
 NosuspendStatement { kw<"nosuspend"> blockExpressionStatement }
+
+SuspendStatement { kw<"suspend"> blockExpressionStatement }
 
 IfStatement {
   kw<"if"> "(" expression ")" Payload? statementBody<Payload?>
@@ -354,7 +357,7 @@ IfTypeExpression {
 }
 
 @skip {} {
-  String { stringStart (stringContent | Escape)* stringEnd }
+  String { stringStart (stringContent | Escape)* (stringEnd | stringLineEnd) }
 }
 
 MultilineString { multilineStringLine+ }
@@ -375,9 +378,12 @@ commaSep1<content> { content ("," content)* ","? }
   Undefined
 }
 
+// A string literal cannot span lines, so an unclosed one ends at the end of
+// its line (`stringLineEnd`) instead of running on to the end of the document.
 @local tokens {
   stringEnd[@name='"'] { '"' }
-  Escape { "\\" (![xu] | "x" hex hex | "u{" hex+ "}") }
+  stringLineEnd { "\n" }
+  Escape { "\\" (![xu\n] | "x" hex hex | "u{" hex+ "}") }
   @else stringContent
 }
 
@@ -385,10 +391,14 @@ commaSep1<content> { content ("," content)* ","? }
   whitespace { @whitespace+ }
 
   LineComment { "//" ![\n]* }
-  DocComment { "///" ![/\n] ![\n]* }
+  // A bare `///` is an (empty) doc comment line. Four or more slashes make
+  // an ordinary comment again; that needs a token of its own, ranked above
+  // DocComment, which would otherwise take the first three.
+  DocComment { "///" (![/\n] ![\n]*)? }
+  sectionComment[@name=LineComment] { "////" ![\n]* }
   ContainerDocComment { "//!" ![\n]* }
 
-  @precedence { DocComment, ContainerDocComment, LineComment, "/" }
+  @precedence { sectionComment, DocComment, ContainerDocComment, LineComment, "/" }
 
   identifierChar { @asciiLetter | @digit | "_" }
 

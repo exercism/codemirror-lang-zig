@@ -30,7 +30,7 @@ export const zigLanguage = LRLanguage.define({
       }),
       styleTags({
         "if else switch while for break continue return": t.controlKeyword,
-        "try catch orelse unreachable defer errdefer resume nosuspend": t.controlKeyword,
+        "try catch orelse unreachable defer errdefer suspend resume nosuspend": t.controlKeyword,
         "const var fn": t.definitionKeyword,
         "struct enum union opaque error test": t.definitionKeyword,
         "pub extern export inline noinline threadlocal comptime packed": t.modifier,

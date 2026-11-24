@@ -103,3 +103,14 @@ test {
 ==>
 
 Program(TestDeclaration(test,Block("{",VariableDeclaration(const,VariableDefinition(Identifier),",",var,VariableDefinition(Identifier),"=",AnonymousInit(".",InitList("{",Integer,",",Integer,"}")),";"),ExpressionStatement(Identifier,",",Identifier,"=",AnonymousInit(".",InitList("{",Identifier,",",Identifier,"}")),";"),"}")))
+
+# Suspend
+
+test {
+    suspend {}
+    suspend resume_later();
+}
+
+==>
+
+Program(TestDeclaration(test,Block("{",SuspendStatement(suspend,Block("{","}")),SuspendStatement(suspend,CallExpression(Identifier,ArgList("(",")")),";"),"}")))

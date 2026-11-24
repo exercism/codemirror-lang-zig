@@ -17,3 +17,14 @@ pub fn f() void {}
 ==>
 
 Program(ContainerDocComment,DocComment,FunctionDeclaration(pub,fn,FunctionName(Identifier),ParamList("(",")"),ReturnType(PrimitiveType),Block("{","}")))
+
+# Empty doc comment lines
+
+/// Summary
+///
+/// Details
+pub fn f() void {}
+
+==>
+
+Program(DocComment,DocComment,DocComment,FunctionDeclaration(pub,fn,FunctionName(Identifier),ParamList("(",")"),ReturnType(PrimitiveType),Block("{","}")))
