@@ -9,6 +9,7 @@
     <div id="editor"></div>
     <script type="module">
       import { EditorView, basicSetup } from "codemirror";
+      import { indentUnit } from "@codemirror/language";
       import { zig } from "./src/index.ts";
 
       const doc = `//! A small Zig program
@@ -56,7 +57,8 @@ test "score" {
 
       new EditorView({
         doc: doc,
-        extensions: [basicSetup, zig()],
+        // Exercism uses online_editor.indent_size from the track's config.json
+        extensions: [basicSetup, zig(), indentUnit.of("    ")],
         parent: document.querySelector("#editor"),
       });
     </script>
