@@ -1,0 +1,75 @@
+# Integers
+
+const a = 42 + 1_000_000 + 0xff + 0o755 + 0b1010_1010;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(BinaryExpression(BinaryExpression(BinaryExpression(Integer,"+",Integer),"+",Integer),"+",Integer),"+",Integer),";"))
+
+# Floats
+
+const b = 3.14 + 1e10 + 1.5e-3 + 0x1.8p3;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(BinaryExpression(BinaryExpression(Float,"+",Float),"+",Float),"+",Float),";"))
+
+# Strings
+
+const s = "Hello, \"world\"!\n\x41\u{1F600}";
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",String("\"",Escape,Escape,Escape,Escape,Escape,"\""),";"))
+
+# Multiline strings
+
+const m =
+    \\first line
+    \\second "line"
+;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",MultilineString,";"))
+
+# Characters
+
+const c = 'a' + '\n' + '\'' + '\u{1F600}';
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(BinaryExpression(BinaryExpression(Char,"+",Char),"+",Char),"+",Char),";"))
+
+# Booleans, null and undefined
+
+var t = .{ true, false, null, undefined };
+
+==>
+
+Program(VariableDeclaration(var,VariableDefinition(Identifier),"=",AnonymousInit(".",InitList("{",Boolean,",",Boolean,",",Null,",",Undefined,"}")),";"))
+
+# Primitive types
+
+const x: u8 = 0; const y: i7 = 0; const z: usize = 0; const w: comptime_int = 0;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),":",PrimitiveType,"=",Integer,";"),VariableDeclaration(const,VariableDefinition(Identifier),":",PrimitiveType,"=",Integer,";"),VariableDeclaration(const,VariableDefinition(Identifier),":",PrimitiveType,"=",Integer,";"),VariableDeclaration(const,VariableDefinition(Identifier),":",PrimitiveType,"=",Integer,";"))
+
+# Enum literals and error values
+
+const e = .{ .red, error.OutOfMemory };
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",AnonymousInit(".",InitList("{",EnumLiteral(".",FieldName(Identifier)),",",ErrorValue(error,".",FieldName(Identifier)),"}")),";"))
+
+# An unclosed string ends at the end of its line
+
+const s = "abc
+const t = 1;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",String("\""),⚠),VariableDeclaration(const,VariableDefinition(Identifier),"=",Integer,";"))

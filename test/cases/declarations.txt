@@ -1,0 +1,76 @@
+# Imports
+
+const std = @import("std");
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",BuiltinCall(BuiltinName,ArgList("(",String("\"","\""),")")),";"))
+
+# Variables
+
+pub const max: u32 = 10;
+var counter: usize = 0;
+threadlocal var tls: i32 = 1;
+extern "c" var errno: c_int;
+
+==>
+
+Program(VariableDeclaration(pub,const,VariableDefinition(Identifier),":",PrimitiveType,"=",Integer,";"),VariableDeclaration(var,VariableDefinition(Identifier),":",PrimitiveType,"=",Integer,";"),VariableDeclaration(threadlocal,var,VariableDefinition(Identifier),":",PrimitiveType,"=",Integer,";"),VariableDeclaration(extern,String("\"","\""),var,VariableDefinition(Identifier),":",PrimitiveType,";"))
+
+# Functions
+
+pub fn add(a: i32, b: i32) i32 {
+    return a + b;
+}
+
+==>
+
+Program(FunctionDeclaration(pub,fn,FunctionName(Identifier),ParamList("(",Param(VariableDefinition(Identifier),":",PrimitiveType),",",Param(VariableDefinition(Identifier),":",PrimitiveType),")"),ReturnType(PrimitiveType),Block("{",ExpressionStatement(ReturnExpression(return,BinaryExpression(Identifier,"+",Identifier)),";"),"}")))
+
+# Error union return types
+
+fn parse(input: []const u8) !u32 {}
+fn open() error{NotFound}!void {}
+
+==>
+
+Program(FunctionDeclaration(fn,FunctionName(Identifier),ParamList("(",Param(VariableDefinition(Identifier),":",PointerType("[","]",const,PrimitiveType)),")"),"!",ReturnType(PrimitiveType),Block("{","}")),FunctionDeclaration(fn,FunctionName(Identifier),ParamList("(",")"),ReturnType(ErrorUnionType(ErrorSet(error,"{",FieldDefinition(Identifier),"}"),"!",PrimitiveType)),Block("{","}")))
+
+# Comptime and anytype parameters
+
+fn max(comptime T: type, a: T, b: anytype) T {}
+
+==>
+
+Program(FunctionDeclaration(fn,FunctionName(Identifier),ParamList("(",Param(comptime,VariableDefinition(Identifier),":",PrimitiveType),",",Param(VariableDefinition(Identifier),":",Identifier),",",Param(VariableDefinition(Identifier),":",anytype),")"),ReturnType(Identifier),Block("{","}")))
+
+# Extern and inline functions
+
+extern "c" fn printf(format: [*:0]const u8, ...) c_int;
+inline fn double(x: u32) u32 {}
+export fn callconvFn() callconv(.c) void {}
+
+==>
+
+Program(FunctionDeclaration(extern,String("\"","\""),fn,FunctionName(Identifier),ParamList("(",Param(VariableDefinition(Identifier),":",PointerType("[*",":",Integer,"]",const,PrimitiveType)),",","...",")"),ReturnType(PrimitiveType),";"),FunctionDeclaration(inline,fn,FunctionName(Identifier),ParamList("(",Param(VariableDefinition(Identifier),":",PrimitiveType),")"),ReturnType(PrimitiveType),Block("{","}")),FunctionDeclaration(export,fn,FunctionName(Identifier),ParamList("(",")"),CallConv(callconv,"(",EnumLiteral(".",FieldName(Identifier)),")"),ReturnType(PrimitiveType),Block("{","}")))
+
+# Tests
+
+test "addition" {
+    try std.testing.expectEqual(3, add(1, 2));
+}
+test add {}
+
+==>
+
+Program(TestDeclaration(test,String("\"","\""),Block("{",ExpressionStatement(PrefixExpression(try,CallExpression(MemberExpression(MemberExpression(Identifier,".",FieldName(Identifier)),".",FieldName(Identifier)),ArgList("(",Integer,",",CallExpression(Identifier,ArgList("(",Integer,",",Integer,")")),")"))),";"),"}")),TestDeclaration(test,Identifier,Block("{","}")))
+
+# Comptime blocks
+
+comptime {
+    assert(true);
+}
+
+==>
+
+Program(ComptimeDeclaration(comptime,Block("{",ExpressionStatement(CallExpression(Identifier,ArgList("(",Boolean,")")),";"),"}")))

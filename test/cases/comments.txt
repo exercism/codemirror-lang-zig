@@ -1,0 +1,30 @@
+# Line comments
+
+// a comment
+const a = 1; // trailing
+//// four slashes is a normal comment
+
+==>
+
+Program(LineComment,VariableDeclaration(const,VariableDefinition(Identifier),"=",Integer,";"),LineComment,LineComment)
+
+# Doc comments
+
+//! Module documentation
+/// Function documentation
+pub fn f() void {}
+
+==>
+
+Program(ContainerDocComment,DocComment,FunctionDeclaration(pub,fn,FunctionName(Identifier),ParamList("(",")"),ReturnType(PrimitiveType),Block("{","}")))
+
+# Empty doc comment lines
+
+/// Summary
+///
+/// Details
+pub fn f() void {}
+
+==>
+
+Program(DocComment,DocComment,DocComment,FunctionDeclaration(pub,fn,FunctionName(Identifier),ParamList("(",")"),ReturnType(PrimitiveType),Block("{","}")))

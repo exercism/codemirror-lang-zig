@@ -1,30 +1,454 @@
-@top Program { expression* }
+// Lezer grammar for Zig, based on the official PEG grammar in
+// zig/doc/langref/grammar.peg (Zig 0.17). The grammar is intentionally
+// somewhat more permissive than Zig itself: its purpose is highlighting,
+// indentation and folding, not validation.
 
-@skip { LineComment | whitespace }
-
-expression {
-  literal
+@precedence {
+  primitive,
+  statement,
+  errorunion,
+  suffix,
+  prefix,
+  times @left,
+  plus @left,
+  shift @left,
+  bitwise @left,
+  compare @left,
+  and @left,
+  or @left,
+  range,
+  assign @right,
+  else @right,
+  low
 }
 
-literal {
-  BooleanLiteral |
-  IntegerLiteral |  
-  FloatingPointLiteral
+@top Program { containerMembers }
+
+@skip { whitespace | LineComment | sectionComment | DocComment | ContainerDocComment }
+
+// *** Containers (files, structs, enums, unions, opaques) ***
+
+containerMembers { (containerDeclaration | ContainerField ",")* ContainerField? }
+
+containerDeclaration {
+  TestDeclaration |
+  ComptimeDeclaration |
+  FunctionDeclaration |
+  VariableDeclaration
+}
+
+TestDeclaration { kw<"test"> (String | Identifier)? Block }
+
+ComptimeDeclaration { kw<"comptime"> Block }
+
+FunctionDeclaration {
+  kw<"pub">? (kw<"export"> | kw<"extern"> String? | kw<"inline"> | kw<"noinline">)?
+  kw<"fn"> FunctionName { Identifier } ParamList fnAttribute* "!"? ReturnType { typeOperand }
+  (Block | ";")
+}
+
+VariableDeclaration {
+  (kw<"pub">? (kw<"export"> | kw<"extern"> String?)? kw<"threadlocal">? | kw<"comptime">)
+  varProto ("," destructureTarget)* ("=" expression)? ";"
+}
+
+destructureTarget { varProto | expression }
+
+varProto {
+  (kw<"const"> | kw<"var">) VariableDefinition (":" typeAnnotation)? varAttribute*
+}
+
+ContainerField {
+  kw<"comptime">? (FieldDefinition (":" typeAnnotation)? | typeExpression)
+  varAttribute* ("=" expression)?
+}
+
+fnAttribute { varAttribute | CallConv { kw<"callconv"> "(" expression ")" } }
+
+varAttribute {
+  Align { kw<"align"> "(" expression ")" } |
+  AddrSpace { kw<"addrspace"> "(" expression ")" } |
+  LinkSection { kw<"linksection"> "(" expression ")" }
+}
+
+ParamList { "(" commaSep<Param | "..."> ")" }
+
+Param {
+  (kw<"noalias"> | kw<"comptime">)? (VariableDefinition ":")? typeAnnotation
+}
+
+// *** Statements ***
+
+Block { "{" statement* "}" }
+
+statement {
+  VariableDeclaration |
+  DeferStatement |
+  ComptimeStatement |
+  NosuspendStatement |
+  SuspendStatement |
+  IfStatement |
+  WhileStatement |
+  ForStatement |
+  blockStatement |
+  ExpressionStatement
+}
+
+// Statements ending in a block don't need a semicolon.
+blockStatement { Block !statement | LabeledBlock !statement | SwitchExpression !statement }
+
+blockExpressionStatement { (Block | LabeledBlock) !statement | assignExpression ";" }
+
+// The errdefer payload was removed in Zig 0.17 but is accepted for older code
+DeferStatement { (kw<"defer"> | kw<"errdefer"> Payload?) blockExpressionStatement }
+
+ComptimeStatement { kw<"comptime"> (Block | LabeledBlock) !statement }
+
+NosuspendStatement { kw<"nosuspend"> blockExpressionStatement }
+
+SuspendStatement { kw<"suspend"> blockExpressionStatement }
+
+IfStatement {
+  kw<"if"> "(" expression ")" Payload? statementBody<Payload?>
+}
+
+WhileStatement {
+  Label? InlineLoop? kw<"while"> "(" expression ")" Payload?
+  (":" "(" assignExpression ")")?
+  statementBody<Payload?>
+}
+
+ForStatement {
+  Label? InlineLoop? kw<"for"> "(" commaSep1<forItem> ")" Payload
+  statementBody<"">
+}
+
+statementBody<elsePayload> {
+  (Block | LabeledBlock) !statement (!else kw<"else"> elsePayload statement)? |
+  assignExpression (";" | !else kw<"else"> elsePayload statement)
+}
+
+ExpressionStatement {
+  assignExpression ";" |
+  expression ("," destructureTarget)+ "=" expression ";"
+}
+
+// *** Expressions ***
+
+expression[@isGroup=Expression] {
+  unaryExpression |
+  BinaryExpression
+}
+
+assignExpression { expression !statement | AssignmentExpression }
+
+BinaryExpression {
+  expression !times ("*" | "/" | "%" | "*%" | "*|" | "||") expression |
+  expression !plus ("+" | "-" | "++" | "+%" | "-%" | "+|" | "-|") expression |
+  expression !shift ("<<" | ">>" | "<<|") expression |
+  expression !bitwise ("&" | "^" | "|" | kw<"orelse">) expression |
+  expression !bitwise kw<"catch"> Payload? expression |
+  expression !compare ("==" | "!=" | "<" | ">" | "<=" | ">=") expression |
+  expression !and kw<"and"> expression |
+  expression !or kw<"or"> expression
+}
+
+AssignmentExpression {
+  expression !assign
+  ("=" | "+=" | "-=" | "*=" | "/=" | "%=" | "<<=" | ">>=" | "&=" | "^=" | "|=" |
+   "*%=" | "+%=" | "-%=" | "*|=" | "+|=" | "-|=" | "<<|=")
+  expression
+}
+
+unaryExpression {
+  PrefixExpression |
+  curlySuffixExpression |
+  blockLikeExpression |
+  ReturnExpression |
+  BreakExpression |
+  ContinueExpression |
+  ResumeExpression |
+  AsmExpression
+}
+
+PrefixExpression {
+  !prefix ("!" | "-" | "~" | "-%" | "&" | kw<"try">) unaryExpression
+}
+
+LabeledBlock { Label Block }
+
+blockLikeExpression {
+  Block |
+  IfExpression |
+  WhileExpression |
+  ForExpression |
+  ComptimeExpression |
+  NosuspendExpression
+}
+
+Label { (Identifier | PrimitiveType) ~label ":" }
+
+LabelName { Identifier | PrimitiveType }
+
+IfExpression {
+  !low kw<"if"> "(" expression ")" Payload? expression
+  (!else kw<"else"> Payload? expression)?
+}
+
+WhileExpression {
+  !low Label? InlineLoop? kw<"while"> "(" expression ")" Payload?
+  (":" "(" assignExpression ")")?
+  expression (!else kw<"else"> Payload? expression)?
+}
+
+ForExpression {
+  !low Label? InlineLoop? kw<"for"> "(" commaSep1<forItem> ")" Payload
+  expression (!else kw<"else"> expression)?
+}
+
+InlineLoop { kw<"inline"> !statement }
+
+forItem { expression | Range { expression !range ".." expression? } }
+
+SwitchExpression {
+  Label? kw<"switch"> "(" expression ")" SwitchBody { "{" commaSep<SwitchCase> "}" }
+}
+
+SwitchCase {
+  kw<"inline">? (kw<"else"> | commaSep1<switchItem>) "=>" Payload? assignExpression
+}
+
+switchItem { expression | Range { expression !range "..." expression } }
+
+ReturnExpression { !low kw<"return"> expression? }
+
+BreakExpression { !low kw<"break"> (":" LabelName)? expression? }
+
+ContinueExpression { !low kw<"continue"> (":" LabelName)? expression? }
+
+ResumeExpression { !low kw<"resume"> expression }
+
+ComptimeExpression { !low kw<"comptime"> expression }
+
+NosuspendExpression { !low kw<"nosuspend"> expression }
+
+AsmExpression {
+  kw<"asm"> kw<"volatile">? "(" expression
+  (":" commaSep<AsmOperand> (":" commaSep<AsmOperand> (":" commaSep<expression>)?)?)? ")"
+}
+
+AsmOperand {
+  "[" Identifier "]" String "(" ("->" typeExpression | expression) ")"
+}
+
+Payload {
+  "|" commaSep1<"*"? VariableDefinition> "|"
+}
+
+curlySuffixExpression {
+  typeExpression |
+  StructInit { typeExpression InitList }
+}
+
+InitList {
+  "{" commaSep<FieldInit | expression> "}"
+}
+
+FieldInit { "." FieldName "=" expression }
+
+// Type expressions: everything that can appear in a function's return type.
+// This excludes `T{...}` initializers, so that the function body can follow.
+typeExpression[@isGroup=Type] {
+  PointerType |
+  ErrorUnionType |
+  suffixExpression
+}
+
+PointerType {
+  !prefix (
+    "?" |
+    kw<"anyframe"> "->" |
+    "*" pointerModifier* |
+    "[*" (Identifier | ":" expression)? "]" pointerModifier* |
+    "[" (expression? (":" expression)?) "]" pointerModifier*
+  ) typeOperand
+}
+
+pointerModifier {
+  kw<"const"> | kw<"volatile"> | kw<"allowzero"> |
+  Align { kw<"align"> "(" expression (":" expression ":" expression)? ")" } |
+  AddrSpace { kw<"addrspace"> "(" expression ")" }
+}
+
+ErrorUnionType { suffixExpression !errorunion "!" typeExpression }
+
+suffixExpression {
+  primaryTypeExpression |
+  CallExpression { suffixExpression !suffix ArgList } |
+  MemberExpression { suffixExpression !suffix "." FieldName } |
+  IndexExpression {
+    suffixExpression !suffix "[" expression (".." expression? (":" expression)?)? "]"
+  } |
+  DerefExpression { suffixExpression !suffix ".*" } |
+  UnwrapExpression { suffixExpression !suffix ".?" }
+}
+
+ArgList { "(" commaSep<expression> ")" }
+
+primaryTypeExpression {
+  BuiltinCall { BuiltinName ArgList } |
+  Char |
+  ContainerType |
+  EnumLiteral { "." FieldName } |
+  AnonymousInit { "." InitList } |
+  ErrorSet { kw<"error"> "{" commaSep<FieldDefinition> "}" } |
+  ErrorValue { kw<"error"> "." FieldName } |
+  FunctionType |
+  ParenthesizedExpression { "(" expression ")" } |
+  Identifier ~label |
+  LabeledBlock |
+  SwitchExpression |
+  PrimitiveType ~label !primitive |
+  Boolean !primitive |
+  Null !primitive |
+  Undefined !primitive |
+  kw<"anyframe"> |
+  kw<"unreachable"> |
+  kw<"anytype"> |
+  Integer |
+  Float |
+  String |
+  MultilineString
+}
+
+FunctionType {
+  !low kw<"fn"> ParamList fnAttribute* "!"? typeOperand
+}
+
+ContainerType {
+  (kw<"extern"> | kw<"packed">)?
+  (
+    kw<"struct"> ("(" expression ")")? |
+    kw<"opaque"> |
+    kw<"enum"> ("(" expression ")")? |
+    kw<"union"> ("(" (kw<"enum"> ("(" expression ")")? | expression) ")")?
+  )
+  ContainerBody { "{" containerMembers "}" }
+}
+
+FieldName { name }
+
+VariableDefinition { name }
+
+FieldDefinition { name !statement }
+
+// Primitive names are allowed as field and parameter names
+name { (Identifier | PrimitiveType | Boolean | Null | Undefined) !statement }
+
+// Type annotations may also be if and switch expressions
+// Types may also be computed with if and switch expressions
+typeOperand { typeExpression | IfTypeExpression }
+
+typeAnnotation { typeOperand }
+
+IfTypeExpression {
+  !low kw<"if"> "(" expression ")" Payload? typeOperand
+  (!else kw<"else"> Payload? typeOperand)?
+}
+
+@skip {} {
+  String { stringStart (stringContent | Escape)* (stringEnd | stringLineEnd) }
+}
+
+MultilineString { multilineStringLine+ }
+
+// *** Helpers ***
+
+kw<term> { @specialize[@name={term}]<Identifier, term> }
+
+commaSep<content> { (content ("," content)*)? ","? }
+
+commaSep1<content> { content ("," content)* ","? }
+
+// Primitive type names (u8, i32, bool, ...) and values (true, null, ...)
+@external specialize { Identifier } specializeIdentifier from "./tokens" {
+  PrimitiveType,
+  Boolean,
+  Null,
+  Undefined
+}
+
+// A string literal cannot span lines, so an unclosed one ends at the end of
+// its line (`stringLineEnd`) instead of running on to the end of the document.
+@local tokens {
+  stringEnd[@name='"'] { '"' }
+  stringLineEnd { "\n" }
+  Escape { "\\" (![xu\n] | "x" hex hex | "u{" hex+ "}") }
+  @else stringContent
 }
 
 @tokens {
-  whitespace { @whitespace+ }  
-  digit { @digit }
-
-  IntegerLiteral { digit+ }
-
-  FloatingPointLiteral { digit+ "." digit+ }
-
-  BooleanLiteral { "true" | "false" }
-
-  @precedence { FloatingPointLiteral, IntegerLiteral }
+  whitespace { @whitespace+ }
 
   LineComment { "//" ![\n]* }
+  // A bare `///` is an (empty) doc comment line. Four or more slashes make
+  // an ordinary comment again; that needs a token of its own, ranked above
+  // DocComment, which would otherwise take the first three.
+  DocComment { "///" (![/\n] ![\n]*)? }
+  sectionComment[@name=LineComment] { "////" ![\n]* }
+  ContainerDocComment { "//!" ![\n]* }
+
+  @precedence { sectionComment, DocComment, ContainerDocComment, LineComment, "/" }
+
+  identifierChar { @asciiLetter | @digit | "_" }
+
+  Identifier {
+    (@asciiLetter | "_") identifierChar* |
+    '@"' (!["\\\n] | "\\" _)* '"'
+  }
+
+  BuiltinName { "@" (@asciiLetter | "_") identifierChar* }
+
+  digit { @digit }
+  hex { @digit | $[a-fA-F] }
+  dec { digit ("_"? digit)* }
+  hexDigits { hex ("_"? hex)* }
+
+  Integer {
+    dec |
+    "0x" hexDigits |
+    "0o" $[0-7] ("_"? $[0-7])* |
+    "0b" $[01] ("_"? $[01])*
+  }
+
+  Float {
+    dec "." dec ($[eE] $[+\-]? dec)? |
+    dec $[eE] $[+\-]? dec |
+    "0x" hexDigits ("." hexDigits)? $[pP] $[+\-]? dec |
+    "0x" hexDigits "." hexDigits
+  }
+
+  @precedence { Float, Integer }
+
+  Char { "'" (!['\\\n] | "\\" (![xu\n] | "x" hex hex | "u{" hex+ "}"))+ "'" }
+
+  stringStart[@name='"'] { '"' }
+
+  multilineStringLine { "\\\\" ![\n]* }
+
+  "[*"
+
+  "(" ")" "[" "]" "{" "}"
+  "." ".." "..." ".*" ".?"
+  "," ";" ":" "=>" "->"
+  "!" "?" "~"
+  "*" "/" "%" "*%" "*|" "||"
+  "+" "-" "++" "+%" "-%" "+|" "-|"
+  "<<" ">>" "<<|"
+  "&" "^" "|"
+  "==" "!=" "<" ">" "<=" ">="
+  "=" "+=" "-=" "*=" "/=" "%=" "<<=" ">>=" "&=" "^=" "|="
+  "*%=" "+%=" "-%=" "*|=" "+|=" "-|=" "<<|="
 }
 
 @detectDelim

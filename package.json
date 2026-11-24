@@ -1,10 +1,11 @@
 {
-  "name": "@exercism/codemirror-lang-replace-this-with-the-track-slug",
+  "name": "@exercism/codemirror-lang-zig",
   "version": "0.0.1",
-  "description": "replace-this-with-the-track-name language support for CodeMirror",
+  "description": "Zig language support for CodeMirror",
   "scripts": {
-    "prepare": "bun run rollup -c",
-    "dev": "vite"
+    "prepare": "bun --bun rollup -c",
+    "dev": "vite",
+    "test": "bun test"
   },
   "type": "module",
   "main": "dist/index.cjs",
