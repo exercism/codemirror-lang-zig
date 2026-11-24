@@ -1,0 +1,73 @@
+# Structs
+
+const Point = struct {
+    x: i32,
+    y: i32 = 0,
+
+    pub fn init(x: i32) Point {
+        return .{ .x = x };
+    }
+};
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",ContainerType(struct,ContainerBody("{",ContainerField(FieldDefinition(Identifier),":",PrimitiveType),",",ContainerField(FieldDefinition(Identifier),":",PrimitiveType,"=",Integer),",",FunctionDeclaration(pub,fn,FunctionName(Identifier),ParamList("(",Param(VariableDefinition(Identifier),":",PrimitiveType),")"),ReturnType(Identifier),Block("{",ExpressionStatement(ReturnExpression(return,AnonymousInit(".",InitList("{",FieldInit(".",FieldName(Identifier),"=",Identifier),"}"))),";"),"}")),"}")),";"))
+
+# Enums
+
+const Color = enum(u8) { red, green = 2, blue };
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",ContainerType(enum,"(",PrimitiveType,")",ContainerBody("{",ContainerField(FieldDefinition(Identifier)),",",ContainerField(FieldDefinition(Identifier),"=",Integer),",",ContainerField(FieldDefinition(Identifier)),"}")),";"))
+
+# Unions
+
+const Value = union(enum) { int: i64, float: f64, none };
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",ContainerType(union,"(",enum,")",ContainerBody("{",ContainerField(FieldDefinition(Identifier),":",PrimitiveType),",",ContainerField(FieldDefinition(Identifier),":",PrimitiveType),",",ContainerField(FieldDefinition(Identifier)),"}")),";"))
+
+# Packed and extern structs
+
+const Flags = packed struct(u8) { a: bool, b: u7 };
+const C = extern struct { len: c_int };
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",ContainerType(packed,struct,"(",PrimitiveType,")",ContainerBody("{",ContainerField(FieldDefinition(Identifier),":",PrimitiveType),",",ContainerField(FieldDefinition(Identifier),":",PrimitiveType),"}")),";"),VariableDeclaration(const,VariableDefinition(Identifier),"=",ContainerType(extern,struct,ContainerBody("{",ContainerField(FieldDefinition(Identifier),":",PrimitiveType),"}")),";"))
+
+# Opaque types
+
+const Handle = opaque {};
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",ContainerType(opaque,ContainerBody("{","}")),";"))
+
+# Error sets
+
+const FileError = error{ NotFound, AccessDenied };
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",ErrorSet(error,"{",FieldDefinition(Identifier),",",FieldDefinition(Identifier),"}"),";"))
+
+# Tuples
+
+const Pair = struct { u32, []const u8 };
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",ContainerType(struct,ContainerBody("{",ContainerField(PrimitiveType),",",ContainerField(PointerType("[","]",const,PrimitiveType)),"}")),";"))
+
+# Generic types
+
+fn List(comptime T: type) type {
+    return struct { items: []T };
+}
+
+==>
+
+Program(FunctionDeclaration(fn,FunctionName(Identifier),ParamList("(",Param(comptime,VariableDefinition(Identifier),":",PrimitiveType),")"),ReturnType(PrimitiveType),Block("{",ExpressionStatement(ReturnExpression(return,ContainerType(struct,ContainerBody("{",ContainerField(FieldDefinition(Identifier),":",PointerType("[","]",Identifier)),"}"))),";"),"}")))

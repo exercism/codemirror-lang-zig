@@ -3,36 +3,62 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>replace-this-with-the-track-name playground</title>
+    <title>Zig playground</title>
   </head>
   <body>
     <div id="editor"></div>
     <script type="module">
-            import { EditorView, basicSetup } from "codemirror";
-            import { replace-this-with-the-track-slug } from "./src/index.ts";
+      import { EditorView, basicSetup } from "codemirror";
+      import { zig } from "./src/index.ts";
 
-            const doc = `
-      # Booleans
+      const doc = `//! A small Zig program
+const std = @import("std");
 
-      true
-      false
+/// A point in 2D space
+const Point = struct {
+    x: i32,
+    y: i32 = 0,
 
-      # Integers
+    pub fn add(self: Point, other: Point) Point {
+        return .{ .x = self.x + other.x, .y = self.y + other.y };
+    }
+};
 
-      5
-      1000
+const Color = enum(u8) { red, green, blue };
 
-      # Floating-point numbers
+pub fn score(word: []const u8) !u32 {
+    var total: u32 = 0;
+    for (word, 0..) |c, i| {
+        switch (c) {
+            'a', 'e', 'i', 'o', 'u' => total += 1,
+            'q', 'z' => total += 10,
+            else => total += if (i % 2 == 0) 2 else 1,
+        }
+    }
+    if (total == 0) return error.EmptyWord;
+    return total;
+}
 
-      3.2
-      1.134123
-      `
+test "score" {
+    const p = Point{ .x = 1 };
+    const message =
+        \\\\Hello, "world"!
+    ;
+    try std.testing.expectEqual(@as(u32, 3), try score("aaa"));
+    _ = p.add(.{ .x = 2, .y = -3 });
+    _ = message;
+    _ = 0x1F + 'x' + @intFromEnum(Color.red);
+    _ = 1.5e3;
+    const maybe: ?*const u8 = null;
+    _ = maybe orelse undefined;
+}
+`;
 
-            new EditorView({
-              doc: doc,
-              extensions: [basicSetup, replace-this-with-the-track-slug()],
-              parent: document.querySelector("#editor"),
-            });
+      new EditorView({
+        doc: doc,
+        extensions: [basicSetup, zig()],
+        parent: document.querySelector("#editor"),
+      });
     </script>
   </body>
 </html>

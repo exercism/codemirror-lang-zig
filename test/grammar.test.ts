@@ -1,17 +1,14 @@
-import { buildParser } from "@lezer/generator";
 import { fileTests } from "@lezer/generator/dist/test";
 
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { describe, test } from "bun:test";
+import { parser } from "./parser";
 
 const caseDir = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "cases"
-);
-const parser = buildParser(
-  fs.readFileSync(path.join("src", "syntax.grammar"), "utf8")
 );
 
 for (const file of fs.readdirSync(caseDir)) {

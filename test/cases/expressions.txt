@@ -1,0 +1,95 @@
+# Operator precedence
+
+const a = 1 + 2 * 3;
+const b = x or y and z;
+const c = a << 1 | b & c;
+const d = a == b and c != d;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(Integer,"+",BinaryExpression(Integer,"*",Integer)),";"),VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(Identifier,or,BinaryExpression(Identifier,and,Identifier)),";"),VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(BinaryExpression(BinaryExpression(Identifier,"<<",Integer),"|",Identifier),"&",Identifier),";"),VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(BinaryExpression(Identifier,"==",Identifier),and,BinaryExpression(Identifier,"!=",Identifier)),";"))
+
+# Wrapping and saturating operators
+
+const e = a +% b -| c *% d;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(BinaryExpression(Identifier,"+%",Identifier),"-|",BinaryExpression(Identifier,"*%",Identifier)),";"))
+
+# Prefix operators
+
+const f = !a and -b < ~c;
+const g = &value;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(PrefixExpression("!",Identifier),and,BinaryExpression(PrefixExpression("-",Identifier),"<",PrefixExpression("~",Identifier))),";"),VariableDeclaration(const,VariableDefinition(Identifier),"=",PrefixExpression("&",Identifier),";"))
+
+# Try, catch and orelse
+
+const h = try open();
+const i = open() catch |err| return err;
+const j = maybe orelse 0;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",PrefixExpression(try,CallExpression(Identifier,ArgList("(",")"))),";"),VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(CallExpression(Identifier,ArgList("(",")")),catch,Payload("|",VariableDefinition(Identifier),"|"),ReturnExpression(return,Identifier)),";"),VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(Identifier,orelse,Integer),";"))
+
+# Pointer and slice types
+
+const k: *const u8 = undefined;
+const l: []u8 = undefined;
+const m: [*:0]const u8 = undefined;
+const n: ?*Node = null;
+const o: [4]u8 = undefined;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),":",PointerType("*",const,PrimitiveType),"=",Undefined,";"),VariableDeclaration(const,VariableDefinition(Identifier),":",PointerType("[","]",PrimitiveType),"=",Undefined,";"),VariableDeclaration(const,VariableDefinition(Identifier),":",PointerType("[*",":",Integer,"]",const,PrimitiveType),"=",Undefined,";"),VariableDeclaration(const,VariableDefinition(Identifier),":",PointerType("?",PointerType("*",Identifier)),"=",Null,";"),VariableDeclaration(const,VariableDefinition(Identifier),":",PointerType("[",Integer,"]",PrimitiveType),"=",Undefined,";"))
+
+# Member access, calls, indexing and slicing
+
+const p = std.mem.eql(u8, a[0..2], b[1..]);
+const q = ptr.*.field + opt.?;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",CallExpression(MemberExpression(MemberExpression(Identifier,".",FieldName(Identifier)),".",FieldName(Identifier)),ArgList("(",PrimitiveType,",",IndexExpression(Identifier,"[",Integer,"..",Integer,"]"),",",IndexExpression(Identifier,"[",Integer,"..","]"),")")),";"),VariableDeclaration(const,VariableDefinition(Identifier),"=",BinaryExpression(MemberExpression(DerefExpression(Identifier,".*"),".",FieldName(Identifier)),"+",UnwrapExpression(Identifier,".?")),";"))
+
+# Struct and array initialization
+
+const r = Point{ .x = 1, .y = 2 };
+const s = [_]u8{ 1, 2, 3 };
+const t = .{ .x = 1 };
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",StructInit(Identifier,InitList("{",FieldInit(".",FieldName(Identifier),"=",Integer),",",FieldInit(".",FieldName(Identifier),"=",Integer),"}")),";"),VariableDeclaration(const,VariableDefinition(Identifier),"=",StructInit(PointerType("[",Identifier,"]",PrimitiveType),InitList("{",Integer,",",Integer,",",Integer,"}")),";"),VariableDeclaration(const,VariableDefinition(Identifier),"=",AnonymousInit(".",InitList("{",FieldInit(".",FieldName(Identifier),"=",Integer),"}")),";"))
+
+# Builtin functions
+
+const u = @as(u32, @intCast(x));
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",BuiltinCall(BuiltinName,ArgList("(",PrimitiveType,",",BuiltinCall(BuiltinName,ArgList("(",Identifier,")")),")")),";"))
+
+# If expressions
+
+const v = if (a) b else c;
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",IfExpression(if,"(",Identifier,")",Identifier,else,Identifier),";"))
+
+# Switch expressions
+
+const w = switch (x) {
+    .a => 1,
+    else => 2,
+};
+
+==>
+
+Program(VariableDeclaration(const,VariableDefinition(Identifier),"=",SwitchExpression(switch,"(",Identifier,")",SwitchBody("{",SwitchCase(EnumLiteral(".",FieldName(Identifier)),"=>",Integer),",",SwitchCase(else,"=>",Integer),",","}")),";"))
